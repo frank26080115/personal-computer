@@ -1,0 +1,29 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28917.181
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NeptuneCoolingManager", "NeptuneCoolingManager.csproj", "{32D27D03-7540-48C8-9067-881183084E45}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{32D27D03-7540-48C8-9067-881183084E45}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{32D27D03-7540-48C8-9067-881183084E45}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{32D27D03-7540-48C8-9067-881183084E45}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{32D27D03-7540-48C8-9067-881183084E45}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8D119195-61CB-4B96-90DF-6334565BD690}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8D119195-61CB-4B96-90DF-6334565BD690}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8D119195-61CB-4B96-90DF-6334565BD690}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8D119195-61CB-4B96-90DF-6334565BD690}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C3118958-177E-4A83-BD85-DB0C6428E90F}
+	EndGlobalSection
+EndGlobal
