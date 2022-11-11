@@ -70,7 +70,7 @@ uint16_t Adafruit_USBD_CDC::getInterfaceDescriptor(uint8_t itfnum, uint8_t *buf,
 void Adafruit_USBD_CDC::begin(uint32_t baud) {
   (void)baud;
 
-#if 0
+#ifdef ALLOW_ADAFRUIT_CDC
   // already called begin()
   if (isValid()) {
     return;

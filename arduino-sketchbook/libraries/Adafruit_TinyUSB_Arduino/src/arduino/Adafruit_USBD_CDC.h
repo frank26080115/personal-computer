@@ -25,6 +25,8 @@
 #ifndef ADAFRUIT_USBD_CDC_H_
 #define ADAFRUIT_USBD_CDC_H_
 
+#define ALLOW_ADAFRUIT_CDC
+
 #include "Adafruit_TinyUSB_API.h"
 
 #if defined(__cplusplus)
