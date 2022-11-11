@@ -10,8 +10,8 @@
 #define M_PI 3.14159265359
 #endif
 
-#define BTN1_IS_DOWN() (digitalRead(PIN_BTN_1) == LOW)
-#define BTN2_IS_DOWN() (digitalRead(PIN_BTN_2) == LOW)
+#define BTNUPPER_IS_DOWN() (digitalRead(PIN_BTN_1) == LOW)
+#define BTNLOWER_IS_DOWN() (digitalRead(PIN_BTN_2) == LOW)
 
 enum
 {
@@ -149,8 +149,24 @@ typedef struct
 {
     cfg_chunk_t norm;
     cfg_chunk_t sleep;
+    cfg_chunk_t off;
     uint16_t chksum;
 }
 cfg_t;
+
+enum
+{
+    PWRMODE_ON,
+    PWRMODE_SLEEP,
+    PWRMODE_OFF,
+};
+
+extern uint16_t pwrled_val, hddled_val;
+
+#define PWRLED_IS_ON() (pwrled_val < (256 * 3))
+#define HDDLED_IS_ON() (hddled_val < (256 * 3))
+
+#define BTNUPPER_IS_DOWN() (digitalRead(PIN_BTN_UPPER) == LOW)
+#define BTNLOWER_IS_DOWN() (digitalRead(PIN_BTN_LOWER) == LOW)
 
 #endif

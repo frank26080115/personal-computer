@@ -1,4 +1,5 @@
-
+#include "klc_config.h"
+#include "klc_defs.h"
 
 void btn_task(uint32_t now)
 {
@@ -11,7 +12,7 @@ void btn_task(uint32_t now)
         ignore_time = 0;
     }
 
-    if (BTN1_IS_DOWN() && BTN2_IS_DOWN() && (prev_btn1_down == false || prev_btn2_down == false))
+    if (BTNUPPER_IS_DOWN() && BTNLOWER_IS_DOWN() && (prev_btn1_down == false || prev_btn2_down == false))
     {
         btn3_flag = true;
         prev_btn1_down = true;
@@ -20,7 +21,7 @@ void btn_task(uint32_t now)
         return;
     }
 
-    if (BTN1_IS_DOWN())
+    if (BTNUPPER_IS_DOWN())
     {
         if (prev_btn1_down == false && (ignore_time == 0 || (now - ignore_time) > 100))
         {
@@ -35,7 +36,7 @@ void btn_task(uint32_t now)
         prev_btn1_down = false;
     }
 
-    if (BTN2_IS_DOWN())
+    if (BTNLOWER_IS_DOWN())
     {
         if (prev_btn2_down == false && (ignore_time == 0 || (now - ignore_time) > 100))
         {

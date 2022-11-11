@@ -6,11 +6,16 @@
 
 #define NEOPIXEL_CNT 70
 
-#define PIN_BTN_1 0
-#define PIN_BTN_2 0
+#define PIN_BTN_UPPER 6
+#define PIN_BTN_LOWER 8
 
-#define PIN_BTNLED_R 0
-#define PIN_BTNLED_G 0
-#define PIN_BTNLED_B 0
+#define PIN_BTNLED_R 11
+#define PIN_BTNLED_G 10
+#define PIN_BTNLED_B 9
+
+#define PIN_NEOPIX 2
+
+#define PIN_PWRLED A3
+#define PIN_HDDLED A4
 
 #endif

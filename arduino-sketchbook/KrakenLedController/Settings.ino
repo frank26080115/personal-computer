@@ -2,6 +2,9 @@
 
 #define SETTINGS_MAGIC 0x1234
 
+extern cfg_t cfg;
+cfg_t cfg_cache;
+
 void settings_load()
 {
     eeprom_read_block((void*)&cfg, 0, sizeof(cfg_t));
