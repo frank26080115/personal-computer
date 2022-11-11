@@ -1,9 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>KrakenCoolingManager</AssemblyName>
-    <AssemblyTitle>Libre Hardware Monitor</AssemblyTitle>
+    <AssemblyTitle>KrakenCoolingManager</AssemblyTitle>
     <Copyright>KrakenCoolingManager</Copyright>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <ApplicationIcon>Resources\icon.ico</ApplicationIcon>
@@ -28,6 +28,9 @@
     <PackageReference Include="System.Management" Version="5.0.0" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="HidLibrary">
+      <HintPath>Kraken\HidLibrary.dll</HintPath>
+    </Reference>
     <Reference Include="System.Web" />
     <Reference Include="System.Configuration.Install" />
   </ItemGroup>
@@ -73,5 +76,10 @@
     <EmbeddedResource Include="Resources\**" />
     <None Include="Resources\app.manifest" />
     <None Include="Resources\icon.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="Kraken\HidLibrary.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

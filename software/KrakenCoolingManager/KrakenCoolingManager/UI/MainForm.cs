@@ -51,6 +51,8 @@ namespace KrakenCoolingManager.UI
         private readonly UpdateVisitor _updateVisitor = new();
         private readonly WmiProvider _wmiProvider;
 
+        private KrakenDevice _kraken;
+
         private int _delayCount;
         private Form _plotForm;
         private UserRadioGroup _plotLocation;
@@ -389,6 +391,8 @@ namespace KrakenCoolingManager.UI
 
             InitializePlotForm();
             InitializeSplitter();
+
+            _kraken = new KrakenDevice(_systemTray);
 
             startupMenuItem.Visible = _startupManager.IsAvailable;
 

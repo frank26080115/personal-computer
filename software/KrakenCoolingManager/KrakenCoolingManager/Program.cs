@@ -58,6 +58,9 @@ namespace KrakenCoolingManager
             if (!IsFileAvailable("OxyPlot.WindowsForms.dll"))
                 return false;
 
+            if (!IsFileAvailable("HidLibrary.dll"))
+                return false;
+
             return true;
         }
     }
