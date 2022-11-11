@@ -1,9 +1,7 @@
 *.user
 *.suo
-*.editorconfig
 [Bb]in/
 [Oo]bj/
 .idea/
 .vs/
-.github/
 packages/
