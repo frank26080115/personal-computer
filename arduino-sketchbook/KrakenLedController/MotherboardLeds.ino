@@ -1,5 +1,5 @@
 #include "klc_config.h"
-#define HISTBUFF_LEN 16
+#define HISTBUFF_LEN 4
 
 uint8_t pwrled_histidx = 0;
 uint8_t hddled_histidx = 0;
@@ -45,4 +45,52 @@ uint16_t hddled_read()
         sum += hddled_histbuff[i];
     }
     return hddled_val = (sum / HISTBUFF_LEN);
+}
+
+void pwrcheck_task(uint32_t now)
+{
+    static bool prev_pwrled = false;
+
+    if (PWRLED_IS_ON() == false)
+    {
+        if (prev_pwrled != false)
+        {
+            led_time = now;
+        }
+
+        if (pwr_mode == PWRMODE_ON)
+        {
+            sync_time = now;
+            pwr_mode = PWRMODE_SLEEP;
+        }
+        else if (pwr_mode == PWRMODE_SLEEP)
+        {
+            if ((now - led_time) > 2000)
+            {
+                pwr_mode = PWRMODE_OFF;
+            }
+        }
+        prev_pwrled = false;
+    }
+    else // PWRLED_IS_ON
+    {
+        if (prev_pwrled == false)
+        {
+            led_time = now;
+        }
+
+        if (pwr_mode == PWRMODE_OFF)
+        {
+            sync_time = now;
+            pwr_mode = PWRMODE_ON;
+        }
+        else if (pwr_mode == PWRMODE_SLEEP)
+        {
+            if ((now - led_time) > 2000)
+            {
+                pwr_mode = PWRMODE_ON;
+            }
+        }
+        prev_pwrled = true;
+    }
 }

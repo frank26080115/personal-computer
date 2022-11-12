@@ -30,7 +30,12 @@ void setup()
     // init LEDs on power buttons
     btn_rgb32(0);
 
+    // init NeoPixels
+    strip.begin();
+
     settings_load();
+
+    tests();
 }
 
 void loop()
@@ -98,54 +103,6 @@ void loop()
     }
 
     settings_saveIfNeeded(now);
-}
-
-void pwrcheck_task(uint32_t now)
-{
-    static bool prev_pwrled = false;
-
-    if (PWRLED_IS_ON() == false)
-    {
-        if (prev_pwrled != false)
-        {
-            led_time = now;
-        }
-
-        if (pwr_mode == PWRMODE_ON)
-        {
-            sync_time = now;
-            pwr_mode = PWRMODE_SLEEP;
-        }
-        else if (pwr_mode == PWRMODE_SLEEP)
-        {
-            if ((now - led_time) > 4000)
-            {
-                pwr_mode = PWRMODE_OFF;
-            }
-        }
-        prev_pwrled = false;
-    }
-    else // PWRLED_IS_ON
-    {
-        if (prev_pwrled == false)
-        {
-            led_time = now;
-        }
-
-        if (pwr_mode == PWRMODE_OFF)
-        {
-            sync_time = now;
-            pwr_mode = PWRMODE_ON;
-        }
-        else if (pwr_mode == PWRMODE_SLEEP)
-        {
-            if ((now - led_time) > 4000)
-            {
-                pwr_mode = PWRMODE_ON;
-            }
-        }
-        prev_pwrled = true;
-    }
 }
 
 cfg_chunk_t* get_current_cfg()
