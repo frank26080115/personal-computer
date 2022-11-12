@@ -4,7 +4,7 @@
 void tests()
 {
     //test_report_all_inputs();
-    test_btns();
+    //test_btns();
     //test_report_power_state();
     //test_btn_rainbow();
     //test_neopixels();

@@ -65,7 +65,7 @@ void pwrcheck_task(uint32_t now)
         }
         else if (pwr_mode == PWRMODE_SLEEP)
         {
-            if ((now - led_time) > 2000)
+            if ((now - led_time) > PWRLED_BLINK_TIMEOUT)
             {
                 pwr_mode = PWRMODE_OFF;
             }
@@ -86,7 +86,7 @@ void pwrcheck_task(uint32_t now)
         }
         else if (pwr_mode == PWRMODE_SLEEP)
         {
-            if ((now - led_time) > 2000)
+            if ((now - led_time) > PWRLED_BLINK_TIMEOUT)
             {
                 pwr_mode = PWRMODE_ON;
             }
