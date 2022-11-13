@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define NEOPIXEL_CNT 70
+#define NEOPIXEL_CNT 64
 
 #define PIN_BTN_UPPER 6
 #define PIN_BTN_LOWER 8
@@ -17,5 +17,8 @@
 
 #define PIN_PWRLED A3
 #define PIN_HDDLED A4
+
+#define PWRLED_BLINK_TIMEOUT    2000
+#define EDIT_MODE_TIMEOUT       (60 * 1000)
 
 #endif

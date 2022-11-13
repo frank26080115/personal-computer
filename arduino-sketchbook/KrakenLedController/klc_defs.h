@@ -91,13 +91,13 @@ enum
 
 enum
 {
-    NEOSPAN_25,
-    NEOSPAN_50,
     NEOSPAN_100,
     NEOSPAN_150,
     NEOSPAN_200,
     NEOSPAN_250,
     NEOSPAN_300,
+    NEOSPAN_25,
+    NEOSPAN_50,
     NEOSPAN_0,
     NEOSPAN_LAST,
 };

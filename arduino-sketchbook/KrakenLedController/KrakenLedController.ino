@@ -15,9 +15,12 @@ uint32_t led_time = 0;
 uint8_t pwr_mode;
 uint8_t edit_item = EDITITEM_LAST;
 bool is_editing = false;
+uint32_t edit_act_time = 0;
 
 cfg_t cfg;
 cfg_chunk_t* edit_cfg;
+
+uint8_t test_mode = 0;
 
 void setup()
 {
@@ -30,7 +33,12 @@ void setup()
     // init LEDs on power buttons
     btn_rgb32(0);
 
+    // init NeoPixels
+    strip.begin();
+
     settings_load();
+
+    tests();
 }
 
 void loop()
@@ -41,26 +49,104 @@ void loop()
 
     uint32_t now = millis();
 
+    while (Serial.available() > 0) {
+        char c = Serial.read();
+        switch (c)
+        {
+            case 'q': btn1_flag = true; break;
+            case 'a': btn2_flag = true; break;
+            case 'z': btn3_flag = true; break;
+            case '1': test_mode = 1; break;
+            case '2': test_mode = 2; break;
+            case '3': test_mode = 3; break;
+            case '0': test_mode = 0; break;
+            case 'r':
+                cfg_chunk_t* rep_cfg = is_editing ? edit_cfg : get_current_cfg();
+                Serial.println(F("Settings:"));
+                Serial.print(F("  mode: "));
+                Serial.print(rep_cfg->neo_mode, DEC);
+                Serial.print(F("  speed: "));
+                Serial.print(rep_cfg->neo_speed, DEC);
+                Serial.print(F("  dir: "));
+                Serial.print(rep_cfg->neo_dir, DEC);
+                Serial.print(F("  span: "));
+                Serial.print(rep_cfg->neo_span, DEC);
+                Serial.print(F("  brite: "));
+                Serial.print(rep_cfg->neo_brite, DEC);
+                Serial.print(F("  btn: "));
+                Serial.print(rep_cfg->btn_mode, DEC);
+                Serial.println();
+        }
+    }
+
     btn_task(now);
     pwrled_read();
     hddled_read();
     pwrcheck_task(now);
 
+    if (test_mode != 0) {
+        pwr_mode = test_mode - 1;
+    }
+
     if (is_editing)
     {
         if (btn1_flag) {
             btn1_flag = false;
+            edit_act_time = now;
+            switch(edit_item)
+            {
+                case EDITITEM_NEO_MODE:
+                    edit_cfg->neo_mode += 1;
+                    edit_cfg->neo_mode %= NEOMODE_LAST;
+                    Serial.print(F("Neo_Mode: "));
+                    Serial.print(edit_cfg->neo_mode, DEC);
+                    Serial.println();
+                    break;
+                case EDITITEM_NEO_SPEED:
+                    edit_cfg->neo_speed += 1;
+                    edit_cfg->neo_speed %= NEOSPEED_LAST;
+                    Serial.print(F("Neo_Speed: "));
+                    Serial.print(edit_cfg->neo_speed, DEC);
+                    Serial.println();
+                    break;
+                case EDITITEM_NEO_DIR:
+                    edit_cfg->neo_dir += 1;
+                    edit_cfg->neo_dir %= NEODIR_LAST;
+                    Serial.print(F("Neo_Dir: "));
+                    Serial.print(edit_cfg->neo_dir, DEC);
+                    Serial.println();
+                    break;
+                case EDITITEM_NEO_SPAN:
+                    edit_cfg->neo_span += 1;
+                    edit_cfg->neo_span %= NEOSPAN_LAST;
+                    Serial.print(F("Neo_Span: "));
+                    Serial.print(edit_cfg->neo_span, DEC);
+                    Serial.println();
+                    break;
+            }
         }
-        if (btn1_flag) {
-            btn1_flag = false;
+        if (btn2_flag) {
+            btn2_flag = false;
+            edit_act_time = now;
             edit_item += 1;
+            Serial.print(F("Edit Mode Item: "));
+            Serial.print(edit_item, DEC);
+            Serial.println();
             if (edit_item >= EDITITEM_LAST) {
                 is_editing = false;
+                Serial.println(F("Exiting Edit Mode"));
             }
         }
         if (btn3_flag) {
             btn3_flag = false;
-            // do nothing
+            edit_act_time = now;
+            edit_item = 0;
+            Serial.println(F("Edit Mode Looping Again"));
+        }
+        if ((now - edit_act_time) >= EDIT_MODE_TIMEOUT)
+        {
+            is_editing = false;
+            Serial.println(F("Timeout Edit Mode"));
         }
     }
 
@@ -71,6 +157,9 @@ void loop()
             btn1_flag = false;
             c->neo_brite += 1;
             c->neo_brite %= NEOBRITE_LAST;
+            Serial.print(F("NeoPixels Brightness: "));
+            Serial.print(c->neo_brite, DEC);
+            Serial.println();
         }
         if (btn2_flag) {
             btn2_flag = false;
@@ -79,72 +168,29 @@ void loop()
                 c->btn_mode += 1;
             }
             c->btn_mode %= BTNMODE_LAST;
+            Serial.print(F("Btn Mode: "));
+            Serial.print(c->btn_mode, DEC);
+            Serial.println();
         }
         if (btn3_flag) {
             btn3_flag = false;
             edit_cfg = get_current_cfg();
             edit_item = EDITITEM_START;
             is_editing = true;
+            edit_act_time = now;
+            Serial.println(F("Entering Edit Mode"));
         }
         show(now, c, true);
+
+        settings_saveIfNeeded(now);
     }
     else
     {
         show(now, edit_cfg, false);
-        uint16_t btn_hue = 65536 / (EDITITEM_LAST + 1);
+        uint32_t btn_hue = 65536 / (EDITITEM_LAST + 1);
         btn_hue *= edit_item;
-        uint32_t btn_colour = strip.ColorHSV(btn_colour, 255, 255);
+        uint32_t btn_colour = strip.ColorHSV(btn_hue, 255, 255);
         btn_rgb32(((now % 600) < 300) ? btn_colour : 0);
-    }
-
-    settings_saveIfNeeded(now);
-}
-
-void pwrcheck_task(uint32_t now)
-{
-    static bool prev_pwrled = false;
-
-    if (PWRLED_IS_ON() == false)
-    {
-        if (prev_pwrled != false)
-        {
-            led_time = now;
-        }
-
-        if (pwr_mode == PWRMODE_ON)
-        {
-            sync_time = now;
-            pwr_mode = PWRMODE_SLEEP;
-        }
-        else if (pwr_mode == PWRMODE_SLEEP)
-        {
-            if ((now - led_time) > 4000)
-            {
-                pwr_mode = PWRMODE_OFF;
-            }
-        }
-        prev_pwrled = false;
-    }
-    else // PWRLED_IS_ON
-    {
-        if (prev_pwrled == false)
-        {
-            led_time = now;
-        }
-
-        if (pwr_mode == PWRMODE_OFF)
-        {
-            sync_time = now;
-            pwr_mode = PWRMODE_ON;
-        }
-        else if (pwr_mode == PWRMODE_SLEEP)
-        {
-            if ((now - led_time) > 4000)
-            {
-                pwr_mode = PWRMODE_ON;
-            }
-        }
-        prev_pwrled = true;
     }
 }
 
@@ -167,30 +213,33 @@ void show(uint32_t now, cfg_chunk_t* c, bool show_btn)
 
     uint8_t base_brite = c->neo_dir != NEODIR_PULSE_BRITE ? 0 : 64;
     uint8_t max_brite  = c->neo_dir != NEODIR_PULSE_BRITE ? 255 : (64 * 3);
-    uint32_t top_brite;
+    uint32_t top_brite = max_brite;
+
+    uint8_t strip_brite = c->neo_mode == NEOMODE_WHITE ? 64 : 255;
 
     switch (c->neo_brite)
     {
         case NEOBRITE_100:
-            top_brite = max_brite;
             break;
         case NEOBRITE_75:
-            top_brite = max_brite / 4;
-            top_brite *= 3;
+            strip_brite /= 2;
+            strip_brite += strip_brite / 2;
             break;
         case NEOBRITE_50:
-            top_brite = max_brite / 2;
+            strip_brite /= 2;
             break;
         case NEOBRITE_25:
-            top_brite = max_brite / 4;
+            strip_brite /= 4;
+            break;
         case NEOBRITE_0:
         default:
-            top_brite = 0;
+            strip_brite = 0;
             break;
     }
+    strip.setBrightness(strip_brite);
 
     uint32_t t_modu;
-    switch (c->neo_span)
+    switch (c->neo_speed)
     {
         case NEOSPEED_1S : t_modu = 1000; break;
         case NEOSPEED_2S : t_modu = 2000; break;
@@ -229,7 +278,7 @@ void show(uint32_t now, cfg_chunk_t* c, bool show_btn)
         xi += M_PI;
         double b = cos(xi) + 1;
         double br = top_brite;
-        br *= b;
+        br *= b / 2;
         top_brite = (uint32_t)lround(br);
     }
     top_brite = (top_brite > 255) ? 255 : top_brite;
@@ -244,10 +293,9 @@ void show(uint32_t now, cfg_chunk_t* c, bool show_btn)
         }
 
         uint32_t hue = hue_start;
-        if (c->neo_mode == NEOMODE_RAINBOW && c->neo_span != NEOSPAN_0)
+        if (c->neo_mode == NEOMODE_RAINBOW && c->neo_span != NEOSPAN_0 && (c->neo_dir == NEODIR_LEFT || c->neo_dir == NEODIR_RIGHT))
         {
             uint32_t hue_offset = 65536;
-            hue_offset *= i;
             hue_offset /= NEOPIXEL_CNT;
             if (c->neo_span == NEOSPAN_150) {
                 hue_offset += hue_offset / 2;
@@ -268,6 +316,7 @@ void show(uint32_t now, cfg_chunk_t* c, bool show_btn)
             else if (c->neo_span == NEOSPAN_25) {
                 hue_offset /= 4;
             }
+            hue_offset *= i;
             hue = hue_start + hue_offset;
         }
         hue %= 65536;
@@ -301,9 +350,12 @@ void show(uint32_t now, cfg_chunk_t* c, bool show_btn)
                     break;
             }
             xi /= NEOPIXEL_CNT;
-            xi += M_PI;
+            double xoff = t * M_PI * 2;
+            xoff /= t_modu;
+            xi += M_PI + xoff;
             double m = cos(xi) + 1;
-            double br = brite;
+            m /= 2;
+            double br = top_brite;
             br *= m;
             brite = (uint32_t)lround(br);
         }
