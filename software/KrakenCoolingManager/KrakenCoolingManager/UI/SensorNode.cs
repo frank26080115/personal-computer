@@ -89,10 +89,7 @@ namespace KrakenCoolingManager.UI
             if (settings.Contains(id))
                 PenColor = settings.GetValue(id, Color.Black);
 
-            if (Sensor.Name.ToLower().StartsWith("fan") && sensor.SensorType == SensorType.Control)
-            {
-                KrakenDevice.AllFanControls.Add(this);
-            }
+            KrakenDevice.CheckAddSensor(this);
         }
 
         public event EventHandler PlotSelectionChanged;

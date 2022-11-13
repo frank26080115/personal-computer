@@ -62,9 +62,12 @@ namespace KrakenCoolingManager.UI
 
         public MainForm()
         {
+            Program.MainForm = this;
+
             InitializeComponent();
 
             _settings = new PersistentSettings();
+            Program.PersistSettings = _settings;
             _settings.Load(Path.ChangeExtension(Application.ExecutablePath, ".config"));
 
             _unitManager = new UnitManager(_settings);
@@ -110,6 +113,7 @@ namespace KrakenCoolingManager.UI
             _computer = new Computer(_settings);
 
             _systemTray = new SystemTray(_computer, _settings, _unitManager);
+            Program.SysTray = _systemTray;
             _systemTray.HideShowCommand += HideShowClick;
             _systemTray.ExitCommand += ExitClick;
 
@@ -392,7 +396,7 @@ namespace KrakenCoolingManager.UI
             InitializePlotForm();
             InitializeSplitter();
 
-            _kraken = new KrakenDevice(_systemTray);
+            _kraken = new KrakenDevice();
 
             startupMenuItem.Visible = _startupManager.IsAvailable;
 
@@ -722,12 +726,16 @@ namespace KrakenCoolingManager.UI
             RestoreCollapsedNodeState(treeView);
         }
 
-        private void SaveConfiguration()
+        public void SaveConfiguration()
         {
-            if (_plotPanel == null || _settings == null)
+            if (_settings == null)
+            {
                 return;
-
-            _plotPanel.SetCurrentSettings();
+            }
+            if (_plotPanel != null)
+            {
+                _plotPanel.SetCurrentSettings();
+            }
 
             foreach (TreeColumn column in treeView.Columns)
                 _settings.SetValue("treeView.Columns." + column.Header + ".Width", column.Width);
