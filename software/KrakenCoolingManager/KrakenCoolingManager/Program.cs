@@ -8,11 +8,16 @@ using System;
 using System.IO;
 using System.Windows.Forms;
 using KrakenCoolingManager.UI;
+using KrakenCoolingManager.Utilities;
 
 namespace KrakenCoolingManager
 {
     public static class Program
     {
+        public static MainForm MainForm = null;
+        public static SystemTray SysTray = null;
+        public static PersistentSettings PersistSettings = null;
+
         [STAThread]
         public static void Main()
         {

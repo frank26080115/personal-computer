@@ -19,23 +19,30 @@ namespace LibreHardwareMonitor.Hardware.Storage
             if (Software.OperatingSystem.IsUnix)
                 return;
 
-            //https://docs.microsoft.com/en-us/windows/win32/cimwin32prov/win32-diskdrive
-            using var diskDriveSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive") { Options = { Timeout = TimeSpan.FromSeconds(10) } };
-            foreach (ManagementBaseObject diskDrive in diskDriveSearcher.Get())
+            try
             {
-                string deviceId = (string)diskDrive.Properties["DeviceId"].Value; // is \\.\PhysicalDrive0..n
-                uint idx = Convert.ToUInt32(diskDrive.Properties["Index"].Value);
-                ulong diskSize = Convert.ToUInt64(diskDrive.Properties["Size"].Value);
-                int scsi = Convert.ToInt32(diskDrive.Properties["SCSIPort"].Value);
-
-                if (deviceId != null)
+                //https://docs.microsoft.com/en-us/windows/win32/cimwin32prov/win32-diskdrive
+                using var diskDriveSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive") { Options = { Timeout = TimeSpan.FromSeconds(10) } };
+                foreach (ManagementBaseObject diskDrive in diskDriveSearcher.Get())
                 {
-                    var instance = AbstractStorage.CreateInstance(deviceId, idx, diskSize, scsi, settings);
-                    if (instance != null)
+                    string deviceId = (string)diskDrive.Properties["DeviceId"].Value; // is \\.\PhysicalDrive0..n
+                    uint idx = Convert.ToUInt32(diskDrive.Properties["Index"].Value);
+                    ulong diskSize = Convert.ToUInt64(diskDrive.Properties["Size"].Value);
+                    int scsi = Convert.ToInt32(diskDrive.Properties["SCSIPort"].Value);
+
+                    if (deviceId != null)
                     {
-                        _hardware.Add(instance);
+                        var instance = AbstractStorage.CreateInstance(deviceId, idx, diskSize, scsi, settings);
+                        if (instance != null)
+                        {
+                            _hardware.Add(instance);
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+
             }
         }
 
