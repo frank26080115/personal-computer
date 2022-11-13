@@ -15,7 +15,7 @@ void btn_task(uint32_t now)
 
     if (BTNUPPER_IS_DOWN() && BTNLOWER_IS_DOWN() && (prev_btn1_down == false || prev_btn2_down == false))
     {
-        btn3_flag = true;
+        btnboth_flag = true;
         prev_btn1_down = true;
         prev_btn2_down = true;
         ignore_time = now;
@@ -43,7 +43,7 @@ void btn_task(uint32_t now)
     {
         if (prev_btn1_down != false && (ignore_time == 0 || (now - ignore_time) > 100))
         {
-            btn1_flag = true;
+            btnupper_flag = true;
             ignore_time = now;
         }
         prev_btn1_down = false;
@@ -57,7 +57,7 @@ void btn_task(uint32_t now)
     {
         if (prev_btn2_down != false && (ignore_time == 0 || (now - ignore_time) > 100))
         {
-            btn2_flag = true;
+            btnlower_flag = true;
             ignore_time = now;
         }
         prev_btn2_down = false;

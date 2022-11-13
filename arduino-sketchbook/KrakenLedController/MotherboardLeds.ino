@@ -55,7 +55,7 @@ void pwrcheck_task(uint32_t now)
     {
         if (prev_pwrled != false)
         {
-            led_time = now;
+            pwrled_time = now;
         }
 
         if (pwr_mode == PWRMODE_ON)
@@ -65,7 +65,7 @@ void pwrcheck_task(uint32_t now)
         }
         else if (pwr_mode == PWRMODE_SLEEP)
         {
-            if ((now - led_time) > PWRLED_BLINK_TIMEOUT)
+            if ((now - pwrled_time) > PWRLED_BLINK_TIMEOUT)
             {
                 pwr_mode = PWRMODE_OFF;
             }
@@ -76,7 +76,7 @@ void pwrcheck_task(uint32_t now)
     {
         if (prev_pwrled == false)
         {
-            led_time = now;
+            pwrled_time = now;
         }
 
         if (pwr_mode == PWRMODE_OFF)
@@ -86,7 +86,7 @@ void pwrcheck_task(uint32_t now)
         }
         else if (pwr_mode == PWRMODE_SLEEP)
         {
-            if ((now - led_time) > PWRLED_BLINK_TIMEOUT)
+            if ((now - pwrled_time) > PWRLED_BLINK_TIMEOUT)
             {
                 pwr_mode = PWRMODE_ON;
             }

@@ -10,8 +10,8 @@
 #define M_PI 3.14159265359
 #endif
 
-#define BTNUPPER_IS_DOWN() (digitalRead(PIN_BTN_1) == LOW)
-#define BTNLOWER_IS_DOWN() (digitalRead(PIN_BTN_2) == LOW)
+#define NEOPIXEL_MAX_BRITE 255
+#define NEOPIXEL_HUE_RANGE 65536
 
 enum
 {

@@ -1,26 +1,29 @@
 #include "klc_config.h"
 #include "klc_defs.h"
 
+#include <avr/wdt.h>
+
 #include <Adafruit_NeoPixel.h> // using https://github.com/adafruit/Adafruit_NeoPixel/commit/7fe11e4c404834b1e727a026498532458d38701f
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NEOPIXEL_CNT, PIN_NEOPIX, NEO_GRB + NEO_KHZ800);
 
-bool btn1_flag = false;
-bool btn2_flag = false;
-bool btn3_flag = false;
+// indicates button has been pressed
+bool btnupper_flag = false;
+bool btnlower_flag = false;
+bool btnboth_flag  = false;
 
-uint32_t sync_time = 0;
-uint32_t led_time = 0;
+uint32_t sync_time   = 0; // used to align start of fading with power-off event
+uint32_t pwrled_time = 0; // the last time that the pwr LED has changed state
 
-uint8_t pwr_mode;
-uint8_t edit_item = EDITITEM_LAST;
-bool is_editing = false;
-uint32_t edit_act_time = 0;
+uint8_t  pwr_mode;                      // current computer power mode
+uint8_t  edit_item     = EDITITEM_LAST; // the item being edited
+bool     is_editing    = false;         // if we are in editing mode
+uint32_t edit_act_time = 0;             // used to timeout editing mode
 
-cfg_t cfg;
-cfg_chunk_t* edit_cfg;
+cfg_t        cfg;      // configuration for the whole device
+cfg_chunk_t* edit_cfg; // the configuration being edited
 
-uint8_t test_mode = 0;
+uint8_t test_mode = 0; // used to override the power mode through serial port
 
 void setup()
 {
@@ -38,61 +41,43 @@ void setup()
 
     settings_load();
 
-    tests();
+    // tests();
+
+    // this device might run for years on end, enable watchdog
+    wdt_enable(WDTO_4S);
 }
 
 void loop()
 {
     if (strip.canShow() == false) {
+        // I know this is an unneccessary delay but I'm too lazy to do real button debouncing
         return;
     }
 
+    wdt_reset(); // feed the watchdog
+
     uint32_t now = millis();
 
-    while (Serial.available() > 0) {
-        char c = Serial.read();
-        switch (c)
-        {
-            case 'q': btn1_flag = true; break;
-            case 'a': btn2_flag = true; break;
-            case 'z': btn3_flag = true; break;
-            case '1': test_mode = 1; break;
-            case '2': test_mode = 2; break;
-            case '3': test_mode = 3; break;
-            case '0': test_mode = 0; break;
-            case 'r':
-                cfg_chunk_t* rep_cfg = is_editing ? edit_cfg : get_current_cfg();
-                Serial.println(F("Settings:"));
-                Serial.print(F("  mode: "));
-                Serial.print(rep_cfg->neo_mode, DEC);
-                Serial.print(F("  speed: "));
-                Serial.print(rep_cfg->neo_speed, DEC);
-                Serial.print(F("  dir: "));
-                Serial.print(rep_cfg->neo_dir, DEC);
-                Serial.print(F("  span: "));
-                Serial.print(rep_cfg->neo_span, DEC);
-                Serial.print(F("  brite: "));
-                Serial.print(rep_cfg->neo_brite, DEC);
-                Serial.print(F("  btn: "));
-                Serial.print(rep_cfg->btn_mode, DEC);
-                Serial.println();
-        }
-    }
+    handle_serial();
 
+    // sample all inputs
     btn_task(now);
     pwrled_read();
     hddled_read();
     pwrcheck_task(now);
 
+    // force a test mode if required
     if (test_mode != 0) {
         pwr_mode = test_mode - 1;
     }
 
     if (is_editing)
     {
-        if (btn1_flag) {
-            btn1_flag = false;
-            edit_act_time = now;
+        if (btnupper_flag)
+        {
+            btnupper_flag = false; // indicated this has been handled
+            edit_act_time = now;   // prevent timeout
+            // upper button changes the setting that is currently being edited
             switch(edit_item)
             {
                 case EDITITEM_NEO_MODE:
@@ -125,11 +110,13 @@ void loop()
                     break;
             }
         }
-        if (btn2_flag) {
-            btn2_flag = false;
-            edit_act_time = now;
+        if (btnlower_flag)
+        {
+            btnlower_flag = false; // indicated this has been handled
+            edit_act_time = now;   // prevent timeout
+            // lower button changes which setting is being edited
             edit_item += 1;
-            Serial.print(F("Edit Mode Item: "));
+            Serial.print(F("Edit Mode Next Item: "));
             Serial.print(edit_item, DEC);
             Serial.println();
             if (edit_item >= EDITITEM_LAST) {
@@ -137,11 +124,12 @@ void loop()
                 Serial.println(F("Exiting Edit Mode"));
             }
         }
-        if (btn3_flag) {
-            btn3_flag = false;
-            edit_act_time = now;
+        if (btnboth_flag)
+        {
+            btnboth_flag = false; // indicated this has been handled
+            edit_act_time = now;  // prevent timeout
             edit_item = 0;
-            Serial.println(F("Edit Mode Looping Again"));
+            Serial.println(F("Edit Mode Looping Again, Item 0"));
         }
         if ((now - edit_act_time) >= EDIT_MODE_TIMEOUT)
         {
@@ -153,44 +141,87 @@ void loop()
     if (is_editing == false)
     {
         cfg_chunk_t* c = get_current_cfg();
-        if (btn1_flag) {
-            btn1_flag = false;
+
+        // when we are in normal operating conditions, pressing the upper button changes the brightness of the neopixel strip
+        if (btnupper_flag) {
+            btnupper_flag = false;
             c->neo_brite += 1;
             c->neo_brite %= NEOBRITE_LAST;
             Serial.print(F("NeoPixels Brightness: "));
             Serial.print(c->neo_brite, DEC);
             Serial.println();
         }
-        if (btn2_flag) {
-            btn2_flag = false;
+
+        // when we are in normal operating conditions, pressing the upper button changes the button mode
+        if (btnlower_flag) {
+            btnlower_flag = false;
             c->btn_mode += 1;
-            if (pwr_mode != PWRMODE_OFF && c->btn_mode == BTNMODE_OFF) {
-                c->btn_mode += 1;
-            }
             c->btn_mode %= BTNMODE_LAST;
             Serial.print(F("Btn Mode: "));
             Serial.print(c->btn_mode, DEC);
             Serial.println();
         }
-        if (btn3_flag) {
-            btn3_flag = false;
+
+        // if both buttons are pressed, enter editing mode
+        if (btnboth_flag) {
+            btnboth_flag = false;
             edit_cfg = get_current_cfg();
             edit_item = EDITITEM_START;
             is_editing = true;
-            edit_act_time = now;
-            Serial.println(F("Entering Edit Mode"));
+            edit_act_time = now; // prevent timeout
+            Serial.println(F("Entering Edit Mode, Item 0"));
         }
         show(now, c, true);
 
         settings_saveIfNeeded(now);
     }
-    else
+    else // in editing mode
     {
+        // show the LED strip but not the button
         show(now, edit_cfg, false);
-        uint32_t btn_hue = 65536 / (EDITITEM_LAST + 1);
+        // indicate the currently edited item by blinking the button a certain colour
+        uint32_t btn_hue = NEOPIXEL_HUE_RANGE / (EDITITEM_LAST + 1);
         btn_hue *= edit_item;
         uint32_t btn_colour = strip.ColorHSV(btn_hue, 255, 255);
-        btn_rgb32(((now % 600) < 300) ? btn_colour : 0);
+        btn_rgb32(((now % 600) < 300) ? btn_colour : 0); // blink
+    }
+}
+
+void handle_serial()
+{
+    while (Serial.available() > 0) {
+        char c = Serial.read();
+        switch (c)
+        {
+            // use serial port keystrokes to fake button presses
+            // because the buttons are recessed, hard to press
+            case 'q': btnupper_flag = true; Serial.println(F("BTN Ser U"));     break;
+            case 'a': btnlower_flag = true; Serial.println(F("BTN Ser D"));     break;
+            case 'z': btnboth_flag  = true; Serial.println(F("BTN Ser B"));     break;
+            // use serial port keystrokes to pretend to be in a certain power mode
+            // for easier programming while PC is off
+            case '1': test_mode = 1;        Serial.println(F("Test Mode 1"));   break;
+            case '2': test_mode = 2;        Serial.println(F("Test Mode 2"));   break;
+            case '3': test_mode = 3;        Serial.println(F("Test Mode 3"));   break;
+            case '0': test_mode = 0;        Serial.println(F("Test Mode Off")); break;
+            // report the current settings
+            case 'r':
+                cfg_chunk_t* rep_cfg = is_editing ? edit_cfg : get_current_cfg();
+                Serial.println(F("Settings:"));
+                Serial.print(F("  mode: "));
+                Serial.print(rep_cfg->neo_mode, DEC);
+                Serial.print(F("  speed: "));
+                Serial.print(rep_cfg->neo_speed, DEC);
+                Serial.print(F("  dir: "));
+                Serial.print(rep_cfg->neo_dir, DEC);
+                Serial.print(F("  span: "));
+                Serial.print(rep_cfg->neo_span, DEC);
+                Serial.print(F("  brite: "));
+                Serial.print(rep_cfg->neo_brite, DEC);
+                Serial.print(F("  btn: "));
+                Serial.print(rep_cfg->btn_mode, DEC);
+                Serial.println();
+        }
     }
 }
 
@@ -205,18 +236,21 @@ cfg_chunk_t* get_current_cfg()
     if (pwr_mode == PWRMODE_OFF) {
         return &(cfg.off);
     }
+    return NULL;
 }
 
 void show(uint32_t now, cfg_chunk_t* c, bool show_btn)
 {
     uint32_t btn_hue;
 
-    uint8_t base_brite = c->neo_dir != NEODIR_PULSE_BRITE ? 0 : 64;
-    uint8_t max_brite  = c->neo_dir != NEODIR_PULSE_BRITE ? 255 : (64 * 3);
+    uint8_t base_brite = c->neo_dir != NEODIR_PULSE_BRITE ? 0 : (NEOPIXEL_MAX_BRITE / 4); // used for the fading with base brightness
+    uint8_t max_brite  = NEOPIXEL_MAX_BRITE - base_brite;
     uint32_t top_brite = max_brite;
 
-    uint8_t strip_brite = c->neo_mode == NEOMODE_WHITE ? 64 : 255;
+    uint8_t strip_brite = c->neo_mode == NEOMODE_WHITE ? (NEOPIXEL_MAX_BRITE / 4) : NEOPIXEL_MAX_BRITE;
+    // white mode needs to be dimmed, the power draw is too much
 
+    // set the overall brightness of the strip
     switch (c->neo_brite)
     {
         case NEOBRITE_100:
@@ -238,6 +272,7 @@ void show(uint32_t now, cfg_chunk_t* c, bool show_btn)
     }
     strip.setBrightness(strip_brite);
 
+    // the speed setting is setting the period time of one cycle
     uint32_t t_modu;
     switch (c->neo_speed)
     {
@@ -260,43 +295,59 @@ void show(uint32_t now, cfg_chunk_t* c, bool show_btn)
     uint32_t hue_start = 0;
     if (c->neo_mode >= NEOMODE_HUE_0 && c->neo_mode <= NEOMODE_HUE_345)
     {
-        hue_start = 65536;
+        // fixed colour
+        hue_start = NEOPIXEL_HUE_RANGE;
         hue_start *= (15 * (c->neo_mode - NEOMODE_HUE_0));
         hue_start /= 360;
     }
     else if (c->neo_mode == NEOMODE_RAINBOW)
     {
-        hue_start = 65536;
+        // starting colour depending on what part of the cycle we are in
+        hue_start = NEOPIXEL_HUE_RANGE;
         hue_start *= t;
         hue_start /= t_modu;
     }
 
+    if (c->btn_mode == BTNMODE_RAINBOW)
+    {
+        // starting colour depending on what part of the cycle we are in
+        btn_hue = NEOPIXEL_HUE_RANGE;
+        btn_hue *= t;
+        btn_hue /= t_modu;
+    }
+
     if (c->neo_dir == NEODIR_PULSE || c->neo_dir == NEODIR_PULSE_BRITE)
     {
+        // calc the phase from time
         double xi = t * M_PI * 2;
         xi /= t_modu;
         xi += M_PI;
+
+        // cos waveform goes from 1 to -1 to 1, we want it to go from 0 to 1 to 0, so first shift it up and then invert it
         double b = cos(xi) + 1;
         double br = top_brite;
-        br *= b / 2;
+        br *= 1 - (b / 2);
         top_brite = (uint32_t)lround(br);
     }
-    top_brite = (top_brite > 255) ? 255 : top_brite;
+    top_brite = (top_brite > NEOPIXEL_MAX_BRITE) ? NEOPIXEL_MAX_BRITE : top_brite; // impose limit
 
     int i;
-    for (i = 0; i < NEOPIXEL_CNT; i++)
+    for (i = 0; i < NEOPIXEL_CNT; i++) // for all pixels
     {
         int j = i;
         if (c->neo_dir == NEODIR_RIGHT)
         {
+            // flip everything if direction is flipped
             j = NEOPIXEL_CNT - 1 - i;
         }
 
         uint32_t hue = hue_start;
         if (c->neo_mode == NEOMODE_RAINBOW && c->neo_span != NEOSPAN_0 && (c->neo_dir == NEODIR_LEFT || c->neo_dir == NEODIR_RIGHT))
         {
-            uint32_t hue_offset = 65536;
+            uint32_t hue_offset = NEOPIXEL_HUE_RANGE;
             hue_offset /= NEOPIXEL_CNT;
+
+            // change the offset based on how many full rainbows need to fit within the strip
             if (c->neo_span == NEOSPAN_150) {
                 hue_offset += hue_offset / 2;
             }
@@ -319,11 +370,12 @@ void show(uint32_t now, cfg_chunk_t* c, bool show_btn)
             hue_offset *= i;
             hue = hue_start + hue_offset;
         }
-        hue %= 65536;
+        hue %= NEOPIXEL_HUE_RANGE; // fit in range
 
         uint32_t brite = top_brite;
         if ((c->neo_dir == NEODIR_LEFT || c->neo_dir == NEODIR_RIGHT) && c->neo_mode != NEOMODE_RAINBOW)
         {
+            // calculate phase of a particular pixel
             double xi = i * M_PI * 2;
             switch (c->neo_span)
             {
@@ -352,18 +404,21 @@ void show(uint32_t now, cfg_chunk_t* c, bool show_btn)
             xi /= NEOPIXEL_CNT;
             double xoff = t * M_PI * 2;
             xoff /= t_modu;
-            xi += M_PI + xoff;
+            xi += xoff;
+
+            // cos waveform goes from 1 to -1 to 1, we want it to go from 0 to 1 to 0, so first shift it up and then invert it
             double m = cos(xi) + 1;
             m /= 2;
             double br = top_brite;
-            br *= m;
+            br *= (1.0 - m);
             brite = (uint32_t)lround(br);
         }
-        brite += base_brite;
-        if (brite > 255) { brite = 255; };
+        brite += base_brite; // add the minimum
+        brite = brite > NEOPIXEL_MAX_BRITE ? NEOPIXEL_MAX_BRITE : brite; // impose limit
 
-        if (j == 5 && c->btn_mode == BTNMODE_RAINBOW)
+        if (j == 5 && c->btn_mode == BTNMODE_RAINBOW && c->neo_mode == BTNMODE_RAINBOW)
         {
+            // if button needs to be rainbow too, sync its colour with the pixel near the button
             btn_hue = hue;
         }
 
@@ -374,28 +429,29 @@ void show(uint32_t now, cfg_chunk_t* c, bool show_btn)
     strip.show();
 
     if (show_btn == false) {
-        return;;
+        return;
     }
 
     //t_modu = 4000;
     //t = now % t_modu;
 
     top_brite = 255;
+    strip.setBrightness(NEOPIXEL_MAX_BRITE);
     if (pwr_mode != PWRMODE_ON)
     {
         double xi = t * M_PI * 2;
         xi /= t_modu;
-        xi += M_PI;
         double b = cos(xi) + 1;
         double br = top_brite;
-        br *= b;
+        br *= b / 2;
         top_brite = (uint32_t)lround(br);
     }
     top_brite = (top_brite > 255) ? 255 : top_brite;
 
     if (c->btn_mode == BTNMODE_RAINBOW)
     {
-        btn_rgb32(strip.gamma32(strip.ColorHSV(btn_hue, 255, 255)));
+        // the hue was calculated earlier
+        btn_rgb32(strip.gamma32(strip.ColorHSV(btn_hue, 255, NEOPIXEL_MAX_BRITE)));
     }
     else if (c->btn_mode == BTNMODE_WHITE)
     {
@@ -412,7 +468,7 @@ void show(uint32_t now, cfg_chunk_t* c, bool show_btn)
     }
     else if (c->btn_mode >= BTNMODE_HUE_0 && c->btn_mode <= BTNMODE_HUE_345)
     {
-        btn_hue = 65536;
+        btn_hue = NEOPIXEL_HUE_RANGE;
         btn_hue *= (15 * (c->btn_mode - BTNMODE_HUE_0));
         btn_hue /= 360;
         btn_rgb32(strip.gamma32(strip.ColorHSV(btn_hue, 255, top_brite)));
@@ -451,7 +507,7 @@ void btnrgb_set(uint8_t pin, uint8_t x)
         }
         if (x != prev_v)
         {
-            analogWrite(pin, 255 - x);
+            analogWrite(pin, 255 - x); // LED is active low, common 
         }
     }
     prev_values[prev_val_idx] = x;
