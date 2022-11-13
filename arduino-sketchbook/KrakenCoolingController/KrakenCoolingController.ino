@@ -3,6 +3,8 @@
 
 #include "Adafruit_TinyUSB.h" // v1.15.0
 
+//#define ALLOW_ADAFRUIT_CDC
+
 // we are pretending we are a Adafruit QT Py because the Seeeduino Xiao's TinyUSB implementation is broken
 // but the pin mapping is not the same, so remap the pins on the Xiao to the numbers on the QT Py
 #define XIAOPIN_0  0
@@ -45,6 +47,7 @@ enum
     CMD_SET_PWM_FAN,
     CMD_SET_PWM_PUMP,
     CMD_SAFE_SHUTDOWN,
+    CMD_ENTER_DFU,
 };
 
 enum
@@ -98,6 +101,8 @@ void setup()
 
     #ifdef ALLOW_ADAFRUIT_CDC
     Serial.begin(115200);
+    delay(2000);
+    Serial.println("Hello KrakenCoolingController");
     #endif
 }
 
@@ -134,6 +139,11 @@ void loop()
             pwm_fan_tgt  = PWM_MAX_VAL / 4;
             pwm_pump_tgt = PWM_PUMP_MIN + 8;
             op_mode = OPMODE_SAFE;
+            #ifdef ALLOW_ADAFRUIT_CDC
+            Serial.print(now, DEC);
+            Serial.print(": Safe Mode");
+            Serial.println();
+            #endif
         }
     }
     else // OPMODE_SHUTDOWN
@@ -277,4 +287,9 @@ void set_report_callback(uint8_t report_id, hid_report_type_t report_type, uint8
             rx_data_time = now; // valid command feeds watchdog
             break;
     };
+
+    if (cmd_byte == CMD_ENTER_DFU)
+    {
+        TinyUSB_Port_EnterDFU();
+    }
 }

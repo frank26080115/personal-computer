@@ -61,15 +61,17 @@ namespace KrakenCoolingManager
 
         enum DeviceCommandByte : byte
         {
-            Both = 0,
-            Fan = 1,
-            Pump = 2,
+            Both     = 0,
+            Fan      = 1,
+            Pump     = 2,
             Shutdown = 3,
+            EnterDfu = 4,
         };
 
         private CoolingMode _coolingMode;
 
         private System.Windows.Forms.Timer _bgTimer;
+        private int _hiddenClickCnt = 0;
 
         private ToolStripMenuItem _menuItemCoolingDevice;
         private ToolStripMenuItem _menuItemCoolingOff;
@@ -121,6 +123,12 @@ namespace KrakenCoolingManager
             _menuItemCoolingDevice.Click += delegate
             {
                 _bgTimer.Interval = 1;
+                _hiddenClickCnt++;
+                if (_hiddenClickCnt >= 3)
+                {
+                    SetEnterDfu();
+                    _hiddenClickCnt = 0;
+                }
             };
             moreItems.Add(_menuItemCoolingDevice);
 
@@ -479,6 +487,17 @@ namespace KrakenCoolingManager
             report.Data[1] = 0xAA;
             report.Data[2] = 0x55;
             report.Data[3] = Convert.ToByte(DeviceCommandByte.Shutdown);
+
+            _usbdev.WriteReport(report, usbdev_WriteHandler, 0);
+        }
+
+        private void SetEnterDfu()
+        {
+            HidReport report = _usbdev.CreateReport();
+
+            report.Data[1] = 0xAA;
+            report.Data[2] = 0x55;
+            report.Data[3] = Convert.ToByte(DeviceCommandByte.EnterDfu);
 
             _usbdev.WriteReport(report, usbdev_WriteHandler, 0);
         }
