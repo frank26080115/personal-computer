@@ -352,6 +352,7 @@ namespace LibreHardwareMonitor.Hardware.Motherboard
                     GetNuvotonConfigurationD(superIO, manufacturer, model, v, t, f, c);
                     break;
 
+                case Chip.NCT6686D:
                 case Chip.NCT6687D:
                     v.Add(new Voltage("+12V", 0));
                     v.Add(new Voltage("+5V", 1));
