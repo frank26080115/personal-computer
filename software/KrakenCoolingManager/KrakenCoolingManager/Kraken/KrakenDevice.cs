@@ -14,6 +14,7 @@ using LibreHardwareMonitor.Hardware;
 using KrakenCoolingManager.Wmi;
 using System.Net;
 using KrakenCoolingManager.Utilities;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace KrakenCoolingManager
 {
@@ -59,6 +60,7 @@ namespace KrakenCoolingManager
             Shutdown,
         };
 
+        // this needs to match the enum inside the microcontroller firmware
         enum DeviceCommandByte : byte
         {
             Both     = 0,
@@ -80,6 +82,11 @@ namespace KrakenCoolingManager
         private ToolStripMenuItem _menuItemCoolingFull;
         private ToolStripMenuItem _menuItemCoolingShutdown;
 
+        private bool _needBalloonWelcome = false;
+        private bool _needBalloonConnect = false;
+        private bool _needBalloonDisconnect = false;
+        private DateTime _welcomeTime;
+
         private float _fanMin = 33;
         private float _fanMax = 66;
         private float _pwrMin = 30;
@@ -87,6 +94,7 @@ namespace KrakenCoolingManager
         private float _tempMin = 60;
         private float _tempMax = 80;
 
+        private bool _prevConnected = false;
         private bool IsDeviceConnected
         {
             get
@@ -101,6 +109,11 @@ namespace KrakenCoolingManager
 
         public KrakenDevice()
         {
+            _needBalloonWelcome = true;
+            _needBalloonConnect = false;
+            _needBalloonConnect = false;
+            _welcomeTime = DateTime.Now;
+
             _bgTimer = new System.Windows.Forms.Timer();
             _bgTimer.Interval = 2500;
             _bgTimer.Tick += bgTimer_Tick;
@@ -124,7 +137,7 @@ namespace KrakenCoolingManager
             {
                 _bgTimer.Interval = 1;
                 _hiddenClickCnt++;
-                if (_hiddenClickCnt >= 3)
+                if (_hiddenClickCnt >= 3) // click this button 3 times to trigger DFU mode
                 {
                     SetEnterDfu();
                     _hiddenClickCnt = 0;
@@ -263,8 +276,43 @@ namespace KrakenCoolingManager
             _bgTimer.Interval = 2500;
             try
             {
-                int fan = 0, pump = 0;
+                // indicate to the user via balloons
+                TimeSpan balloonTime = DateTime.Now - _welcomeTime;
+                if (_needBalloonWelcome && balloonTime.TotalSeconds > 5)
+                {
+                    string txt = "KrakenCoolingManager has started" + Environment.NewLine;
+                    if (IsDeviceConnected)
+                    {
+                        txt += "USB cooling controller CONNECTED";
+                        _prevConnected = true;
+                    }
+                    else
+                    {
+                        txt += "USB cooling controller DISCONNECTED";
+                        _prevConnected = false;
+                    }
+                    Program.SysTray.MainIcon.ShowBalloonTip(1000, "KrakenCoolingManager Started", txt, _prevConnected ? ToolTipIcon.Info : ToolTipIcon.Warning);
+                    _needBalloonConnect = false;
+                    _needBalloonDisconnect = false;
+                    _needBalloonWelcome = false;
+                }
+                else if (_needBalloonConnect && _needBalloonWelcome == false)
+                {
+                    Program.SysTray.MainIcon.ShowBalloonTip(1000, "KrakenCoolingManager", "USB cooling ctrler CONNECTED", ToolTipIcon.Info);
+                    _needBalloonConnect = false;
+                    _needBalloonDisconnect = false;
+                    _needBalloonWelcome = false;
+                }
+                else if (_needBalloonDisconnect && _needBalloonWelcome == false)
+                {
+                    Program.SysTray.MainIcon.ShowBalloonTip(1000, "KrakenCoolingManager", "USB cooling ctrler DISCONNECTED", ToolTipIcon.Warning);
+                    _needBalloonConnect = false;
+                    _needBalloonDisconnect = false;
+                    _needBalloonWelcome = false;
+                }
 
+                // perform cooling control calculations
+                int fan = 0, pump = 0;
                 float x = GetCoolingRequested();
                 if ((prev_cooling <= 0 || cool_req_time.HasValue == false) && x > 0)
                 {
@@ -294,6 +342,7 @@ namespace KrakenCoolingManager
                 prev_cooling = x;
                 _menuItemCoolingAuto.Text = string.Format("Cooling - Auto ({0}%)", Convert.ToInt32(Math.Round(x)));
 
+                // connect to the USB device and send commands to it
                 UsbConnect();
                 if (IsDeviceConnected)
                 {
@@ -317,10 +366,21 @@ namespace KrakenCoolingManager
                             SetPwm(fan, pump);
                             break;
                     }
+
+                    if (_prevConnected == false)
+                    {
+                        _needBalloonConnect = true;
+                    }
+                    _prevConnected = true;
                 }
                 else
                 {
                     _menuItemCoolingDevice.Text = "Kraken Device - Disconnected";
+                    if (_prevConnected)
+                    {
+                        _needBalloonDisconnect = true;
+                    }
+                    _prevConnected = false;
                 }
             }
             catch (Exception ex)

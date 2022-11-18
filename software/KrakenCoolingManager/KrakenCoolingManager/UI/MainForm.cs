@@ -407,10 +407,6 @@ namespace KrakenCoolingManager.UI
                     WindowState = FormWindowState.Minimized;
                     Show();
                 }
-                else
-                {
-                    _systemTray.MainIcon.ShowBalloonTip(1000, "KrakenCoolingManager Started", "KrakenCoolingManager has started", ToolTipIcon.Info);
-                }
             }
             else
             {
