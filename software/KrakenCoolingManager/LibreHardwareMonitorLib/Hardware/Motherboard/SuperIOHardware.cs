@@ -349,10 +349,11 @@ namespace LibreHardwareMonitor.Hardware.Motherboard
                 case Chip.NCT6797D:
                 case Chip.NCT6798D:
                 case Chip.NCT6683D:
+                case Chip.NCT6686D:
                     GetNuvotonConfigurationD(superIO, manufacturer, model, v, t, f, c);
                     break;
 
-                case Chip.NCT6686D:
+                //case Chip.NCT6686D:
                 case Chip.NCT6687D:
                     v.Add(new Voltage("+12V", 0));
                     v.Add(new Voltage("+5V", 1));
@@ -2248,6 +2249,7 @@ namespace LibreHardwareMonitor.Hardware.Motherboard
                             break;
 
                         case Model.X570_Phantom_Gaming_ITX:
+                        case Model.Z690_Phantom_Gaming_ITX:
                             v.Add(new Voltage("+12V", 0));
                             v.Add(new Voltage("+5V", 1));
                             v.Add(new Voltage("Vcore", 2));

@@ -418,7 +418,7 @@ namespace LibreHardwareMonitor.Hardware.Motherboard.Lpc
 
             for (int i = 0; i < Voltages.Length; i++)
             {
-                if (Chip is not Chip.NCT6687D and Chip.NCT6686D)
+                if (Chip is not Chip.NCT6687D and not Chip.NCT6686D)
                 {
                     float value = 0.008f * ReadByte(_voltageRegisters[i]);
                     bool valid = value > 0;
