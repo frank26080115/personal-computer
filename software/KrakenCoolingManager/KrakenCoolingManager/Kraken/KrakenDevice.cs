@@ -15,6 +15,8 @@ using KrakenCoolingManager.Wmi;
 using System.Net;
 using KrakenCoolingManager.Utilities;
 using static System.Net.Mime.MediaTypeNames;
+using Microsoft.Win32;
+using static System.Windows.Forms.AxHost;
 
 namespace KrakenCoolingManager
 {
@@ -70,6 +72,13 @@ namespace KrakenCoolingManager
             EnterDfu = 4,
         };
 
+        enum MonitorState
+        {
+            MonitorStateOn = -1,
+            MonitorStateOff = 2,
+            MonitorStateStandBy = 1
+        }
+
         private CoolingMode _coolingMode;
 
         private System.Windows.Forms.Timer _bgTimer;
@@ -81,6 +90,7 @@ namespace KrakenCoolingManager
         private ToolStripMenuItem _menuItemCoolingLow;
         private ToolStripMenuItem _menuItemCoolingFull;
         private ToolStripMenuItem _menuItemCoolingShutdown;
+        private ToolStripMenuItem _menuItemMonitorSleep;
 
         private bool _needBalloonWelcome = false;
         private bool _needBalloonConnect = false;
@@ -106,6 +116,8 @@ namespace KrakenCoolingManager
                 return _usbdev.IsOpen && _usbdev.IsConnected;
             }
         }
+
+        KeyboardHook kbhook = new KeyboardHook();
 
         public KrakenDevice()
         {
@@ -144,6 +156,19 @@ namespace KrakenCoolingManager
                 }
             };
             moreItems.Add(_menuItemCoolingDevice);
+
+            _menuItemMonitorSleep = new ToolStripMenuItem("Screen Sleep (Shift+Ctrl+Win+F12)");
+            SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
+            _menuItemMonitorSleep.Click += delegate
+            {
+                SleepMonitorThreadStart();
+            };
+            moreItems.Add(_menuItemMonitorSleep);
+            kbhook.KeyPressed += delegate
+            {
+                SleepMonitorThreadStart();
+            };
+            kbhook.RegisterHotKey(ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Win, Keys.F12);
 
             _menuItemCoolingOff = new ToolStripMenuItem("Cooling - OFF");
             _menuItemCoolingOff.CheckOnClick = true;
@@ -346,7 +371,7 @@ namespace KrakenCoolingManager
                 UsbConnect();
                 if (IsDeviceConnected)
                 {
-                    _menuItemCoolingDevice.Text = "Kraken Device - Open";
+                    _menuItemCoolingDevice.Text = "Kraken Device - Connected";
 
                     switch (_coolingMode)
                     {
@@ -561,5 +586,173 @@ namespace KrakenCoolingManager
 
             _usbdev.WriteReport(report, usbdev_WriteHandler, 0);
         }
+
+        Thread sleepMonitorThread = null;
+
+        [DllImport("user32.dll")]
+        private static extern int SendMessage(int hWnd, int hMsg, int wParam, int lParam);
+
+        private void SleepMonitorThread()
+        {
+            try
+            {
+                SendMessage(0xFFFF, 0x112, 0xF170, (int)MonitorState.MonitorStateOff);
+                sleepMonitorThread = null;
+            }
+            catch { }
+        }
+
+        private void SleepMonitorThreadStart()
+        {
+            sleepMonitorThread = new Thread(new ThreadStart(SleepMonitorThread));
+            sleepMonitorThread.Start();
+        }
+
+        private void SystemEvents_SessionSwitch(object sender, SessionSwitchEventArgs e)
+        {
+            SleepMonitorThreadStart();
+        }
+    }
+
+    public sealed class KeyboardHook : IDisposable
+    {
+        // Registers a hot key with Windows.
+        [DllImport("user32.dll")]
+        private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+        // Unregisters the hot key with Windows.
+        [DllImport("user32.dll")]
+        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+        /// <summary>
+        /// Represents the window that is used internally to get the messages.
+        /// </summary>
+        private class Window : NativeWindow, IDisposable
+        {
+            private static int WM_HOTKEY = 0x0312;
+
+            public Window()
+            {
+                // create the handle for the window.
+                this.CreateHandle(new CreateParams());
+            }
+
+            /// <summary>
+            /// Overridden to get the notifications.
+            /// </summary>
+            /// <param name="m"></param>
+            protected override void WndProc(ref Message m)
+            {
+                base.WndProc(ref m);
+
+                // check if we got a hot key pressed.
+                if (m.Msg == WM_HOTKEY)
+                {
+                    // get the keys.
+                    Keys key = (Keys)(((int)m.LParam >> 16) & 0xFFFF);
+                    ModifierKeys modifier = (ModifierKeys)((int)m.LParam & 0xFFFF);
+
+                    // invoke the event to notify the parent.
+                    if (KeyPressed != null)
+                        KeyPressed(this, new KeyPressedEventArgs(modifier, key));
+                }
+            }
+
+            public event EventHandler<KeyPressedEventArgs> KeyPressed;
+
+            #region IDisposable Members
+
+            public void Dispose()
+            {
+                this.DestroyHandle();
+            }
+
+            #endregion
+        }
+
+        private Window _window = new Window();
+        private int _currentId;
+
+        public KeyboardHook()
+        {
+            // register the event of the inner native window.
+            _window.KeyPressed += delegate (object sender, KeyPressedEventArgs args)
+            {
+                if (KeyPressed != null)
+                    KeyPressed(this, args);
+            };
+        }
+
+        /// <summary>
+        /// Registers a hot key in the system.
+        /// </summary>
+        /// <param name="modifier">The modifiers that are associated with the hot key.</param>
+        /// <param name="key">The key itself that is associated with the hot key.</param>
+        public void RegisterHotKey(ModifierKeys modifier, Keys key)
+        {
+            // increment the counter.
+            _currentId = _currentId + 1;
+
+            // register the hot key.
+            if (!RegisterHotKey(_window.Handle, _currentId, (uint)modifier, (uint)key))
+                throw new InvalidOperationException("Couldn’t register the hot key.");
+        }
+
+        /// <summary>
+        /// A hot key has been pressed.
+        /// </summary>
+        public event EventHandler<KeyPressedEventArgs> KeyPressed;
+
+        #region IDisposable Members
+
+        public void Dispose()
+        {
+            // unregister all the registered hot keys.
+            for (int i = _currentId; i > 0; i--)
+            {
+                UnregisterHotKey(_window.Handle, i);
+            }
+
+            // dispose the inner native window.
+            _window.Dispose();
+        }
+
+        #endregion
+    }
+
+    /// <summary>
+    /// Event Args for the event that is fired after the hot key has been pressed.
+    /// </summary>
+    public class KeyPressedEventArgs : EventArgs
+    {
+        private ModifierKeys _modifier;
+        private Keys _key;
+
+        internal KeyPressedEventArgs(ModifierKeys modifier, Keys key)
+        {
+            _modifier = modifier;
+            _key = key;
+        }
+
+        public ModifierKeys Modifier
+        {
+            get { return _modifier; }
+        }
+
+        public Keys Key
+        {
+            get { return _key; }
+        }
+    }
+
+    /// <summary>
+    /// The enumeration of possible modifiers.
+    /// </summary>
+    [Flags]
+    public enum ModifierKeys : uint
+    {
+        Alt = 1,
+        Control = 2,
+        Shift = 4,
+        Win = 8
     }
 }
