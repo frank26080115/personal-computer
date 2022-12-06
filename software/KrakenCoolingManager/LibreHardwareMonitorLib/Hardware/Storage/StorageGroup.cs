@@ -20,13 +20,12 @@ namespace LibreHardwareMonitor.Hardware.Storage
                 return;
 
             DateTime startTime = DateTime.Now;
-            int cnt = 0;
 
             do
             {
                 try
                 {
-                    cnt = 0;
+                    _hardware.Clear();
 
                     //https://docs.microsoft.com/en-us/windows/win32/cimwin32prov/win32-diskdrive
                     using var diskDriveSearcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive") { Options = { Timeout = TimeSpan.FromSeconds(10) } };
@@ -43,7 +42,6 @@ namespace LibreHardwareMonitor.Hardware.Storage
                             if (instance != null)
                             {
                                 _hardware.Add(instance);
-                                cnt++;
                             }
                         }
                     }
@@ -56,7 +54,7 @@ namespace LibreHardwareMonitor.Hardware.Storage
                     continue;
                 }
             }
-            while ((DateTime.Now - startTime) < TimeSpan.FromSeconds(60) && cnt <= 0);
+            while ((DateTime.Now - startTime) < TimeSpan.FromSeconds(60) && _hardware.Count <= 0);
         }
 
         public IReadOnlyList<IHardware> Hardware => _hardware;
